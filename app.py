@@ -15,6 +15,7 @@ base_hz = st.sidebar.slider("기준 주파수 (Carrier)", 100, 250, 140, help="1
 offset_hz = st.sidebar.slider("유도 뇌파 (Offset)", 0.1, 40.0, 7.83, help="차이값이 곧 뇌파 동조 주파수가 됩니다.")
 
 st.sidebar.header("2. 🍃 자연 배경음 선택")
+# 특수문자 공백 제거 및 깔끔하게 정리
 noise_choice = st.sidebar.selectbox("사운드 소스", 
     ["빗소리 (Pink Rain)", "파도소리 (Brown Ocean)", "바람소리 (Deep Wind)", "모닥불소리 (Fire Crackle)", "시냇물소리 (Stream)"])
 noise_vol = st.sidebar.slider("배경음 볼륨", 0.0, 1.0, 0.4)
@@ -24,9 +25,9 @@ breath_hz = st.sidebar.number_input("호흡 속도 (Hz)", 0.01, 0.50, 0.05, step
 st.sidebar.caption(f"💡 현재 설정: {1/breath_hz:.1f}초당 1회 호흡 주기")
 
 # --- 사운드 생성 엔진 ---
-def generate_soundlay_session(duration_min=5):
+def generate_soundlay_session(duration_sec=30):
     fs = 44100
-    t = np.linspace(0, duration_min * 60, int(fs * duration_min * 60), endpoint=False)
+    t = np.linspace(0, duration_sec, int(fs * duration_sec), endpoint=False)
     
     # Binaural Beats 생성
     l_ch = np.sin(2 * np.pi * base_hz * t)
@@ -35,9 +36,9 @@ def generate_soundlay_session(duration_min=5):
     # Noise Generation (알고리즘 기반 자연음)
     white = np.random.normal(0, 1, len(t))
     if "빗소리" in noise_choice:
-        noise = np.cumsum(white) # Pink Noise 계열
+        noise = np.cumsum(white)
     elif "파도소리" in noise_choice:
-        noise = np.cumsum(np.cumsum(white)) # Brown Noise 계열
+        noise = np.cumsum(np.cumsum(white))
     elif "바람소리" in noise_choice:
         noise = np.convolve(white, np.ones(200)/200, mode='same')
     elif "모닥불소리" in noise_choice:
@@ -56,18 +57,30 @@ def generate_soundlay_session(duration_min=5):
     return fs, np.clip(final, -1.0, 1.0).T.astype(np.float32)
 
 # --- 메인 화면 실행 ---
-if st.button("🔴 5분 세션 렌더링 및 녹음 시작"):
-    with st.spinner("사운드를 정밀하게 설계 중입니다..."):
-        fs, audio_data = generate_soundlay_session(5)
-        
-        buf = io.BytesIO()
-        wavfile.write(buf, fs, audio_data)
-        
-        st.audio(buf)
-        st.download_button(
-            label="💾 고음질 WAV 다운로드",
-            data=buf.getvalue(),
-            file_name=f"SoundLay_{noise_choice}_{offset_hz}Hz.wav",
-            mime="audio/wav"
-        )
-    st.success("세션 생성이 완료되었습니다! 위 플레이어에서 확인하거나 다운로드하세요.")
+
+st.info("설정을 조절한 후 아래 버튼을 눌러 음원을 생성하세요.")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("▶️ 30초 미리듣기 생성"):
+        with st.spinner("미리듣기 제작 중..."):
+            fs, audio_data = generate_soundlay_session(30)
+            buf = io.BytesIO()
+            wavfile.write(buf, fs, audio_data)
+            st.audio(buf)
+
+with col2:
+    if st.button("🔴 5분 세션 본 녹음"):
+        with st.spinner("고음질 5분 세션 렌더링 중... (약 10초 소요)"):
+            fs, audio_data = generate_soundlay_session(300) # 5분
+            buf = io.BytesIO()
+            wavfile.write(buf, fs, audio_data)
+            st.audio(buf)
+            st.download_button(
+                label="💾 고음질 WAV 다운로드",
+                data=buf.getvalue(),
+                file_name=f"SoundLay_{noise_choice}_{offset_hz}Hz.wav",
+                mime="audio/wav"
+            )
+            st.success("세션 생성이 완료되었습니다!")
